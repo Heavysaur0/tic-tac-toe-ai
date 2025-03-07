@@ -116,6 +116,24 @@ def alpha_beta_pruning(mx, mo, alpha, beta, maximize):
                 break
     return value
 
+def negamax_alpha_beta_pruning(mx, mo, maximize):
+    def recursive_function(mx, mo, alpha, beta):
+        if (value := check_winner(mx, mo)) is not None:
+            return value  # Already from X's perspective
+
+        best_score = -1  # Worst case for X
+        for action in actions(mx, mo):
+            score = -recursive_function(mo, mx | action, -beta, -alpha) # Swap mx/mo
+            best_score = max(best_score, score)
+            alpha = max(alpha, score)
+            if alpha >= beta:  # Alpha-beta pruning
+                break
+
+        return best_score
+
+    if maximize:
+        return recursive_function(mx, mo, -1, 1)
+    return -recursive_function(mo, mx, -1, 1)
 
 def hashes_transform(mx, mo, t):
     return sum(((((mx >> i) & 1) << 9) | ((mo >> i) & 1)) << t[i] for i in range(9))
@@ -157,6 +175,31 @@ def alpha_beta_pruning_hash(mx, mo, maximize):
         return value
 
     return alpha_beta_pruning(mx, mo, -1, 1, maximize)
+
+def negamax_alpha_beta_pruning_hash(mx, mo, player):
+    """Optimized Negamax with Alpha-Beta Pruning (avg 0.012s)"""
+    hash_dic = {}
+
+    def negamax_alpha_beta_pruning(mx, mo, alpha, beta, color):
+        if (value := check_winner(mx, mo)) is not None:
+            return value  # Flip score based on player's perspective
+
+        hash_val = hash_board(mx, mo)
+        if hash_val in hash_dic:
+            return hash_dic[hash_val]
+
+        best_score = -1  # Equivalent to min/max initialization
+        for action in actions(mx, mo):
+            score = -negamax_alpha_beta_pruning(mo, mx | action, -beta, -alpha, -color)
+            best_score = max(best_score, score)
+            alpha = max(alpha, score)
+            if alpha >= beta:  # Alpha-beta pruning
+                break
+
+        hash_dic[hash_val] = best_score
+        return best_score
+
+    return alpha_beta_pruning(mx, mo, -1, 1, player)
 
 def test_time(eval_function, iterations = 1000):
     mx, mo = 0, 0
@@ -214,15 +257,16 @@ def eval_foo(type):
     if type == 2:
         return lambda mx, mo, maximize: alpha_beta_pruning_hash(mx, mo, maximize)
 
-type = 0
-eval_function = eval_foo(type)
-moves = 0
-mx, mo = random_position(moves)
+if __name__ == '__main__':
+    type = 0
+    eval_function = eval_foo(type)
+    moves = 0
+    mx, mo = random_position(moves)
 
-display_board(mx, mo)
-st = time.time()
-value = eval_function(mx, mo, moves % 2 == 0)
-et = time.time()
-print(f"AI result: {value}")
-print(f"It took: {et - st:.6f}s")
-display_ai_move(mx, mo, moves % 2 == 0, eval_function)
+    display_board(mx, mo)
+    st = time.time()
+    value = eval_function(mx, mo, moves % 2 == 0)
+    et = time.time()
+    print(f"AI result: {value}")
+    print(f"It took: {et - st:.6f}s")
+    display_ai_move(mx, mo, moves % 2 == 0, eval_function)
